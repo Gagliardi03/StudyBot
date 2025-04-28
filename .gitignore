@@ -1,0 +1,92 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.env
+
+# Firebase
+firebase-key.json
+firebase-credentials.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history
+
+# IDE - PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+*.iws
+.idea_modules/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Sphinx documentation
+docs/_build/
+
+# Arquivos temporários
+.DS_Store
+Thumbs.db
+*.swp
+*~
+*.bak
+*.tmp
+temp/
+
+# Diretórios de dados
+data/
+uploads/
+
+# Variáveis de ambiente (nunca commit arquivos .env, apenas exemplos!)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Arquivos gerados automaticamente
+.coverage
+coverage.xml
+nosetests.xml
