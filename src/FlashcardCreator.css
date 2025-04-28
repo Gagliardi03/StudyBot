@@ -1,0 +1,294 @@
+/* FlashcardCreator.css - Estilos para o componente de flashcards */
+
+.flashcard-container {
+    padding: 1.5rem;
+    background-color: #F8F9FA;
+}
+
+.flashcard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-icon {
+    color: #4C6EF5;
+}
+
+.header-title h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #343A40;
+}
+
+.create-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #4C6EF5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.create-button:hover {
+    background-color: #3b5bd4;
+}
+
+/* Formulário para criar/editar flashcards */
+.flashcard-form {
+    background-color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #DDE2E5;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #4C6EF5;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.cancel-button,
+.submit-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.cancel-button {
+    background-color: #E9ECEF;
+    color: #495057;
+    border: none;
+}
+
+.cancel-button:hover {
+    background-color: #DDE2E5;
+}
+
+.submit-button {
+    background-color: #4C6EF5;
+    color: white;
+    border: none;
+}
+
+.submit-button:hover {
+    background-color: #3b5bd4;
+}
+
+/* Seção de notas para geração automática */
+.notes-section {
+    background-color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.notes-section h3 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    color: #343A40;
+}
+
+.notes-input {
+    width: 100%;
+    min-height: 150px;
+    padding: 0.75rem;
+    border: 1px solid #DDE2E5;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    resize: vertical;
+}
+
+.notes-input:focus {
+    outline: none;
+    border-color: #4C6EF5;
+}
+
+.generate-button {
+    padding: 0.5rem 1rem;
+    background-color: #FF922B;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.generate-button:hover {
+    background-color: #e67e22;
+}
+
+.generate-button:disabled {
+    background-color: #CED4DA;
+    cursor: not-allowed;
+}
+
+/* Grid de flashcards */
+.flashcards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    background-color: white;
+    border-radius: 12px;
+    color: #6C757D;
+}
+
+/* Estilo do flashcard */
+.flashcard {
+    height: 200px;
+    perspective: 1000px;
+    position: relative;
+    cursor: pointer;
+}
+
+.flashcard-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+}
+
+.flashcard.flipped .flashcard-inner {
+    transform: rotateY(180deg);
+}
+
+.flashcard-front,
+.flashcard-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.flashcard-front {
+    background-color: #4C6EF5;
+    color: white;
+}
+
+.flashcard-back {
+    background-color: white;
+    color: #343A40;
+    transform: rotateY(180deg);
+    border: 2px solid #4C6EF5;
+}
+
+.card-actions {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 0.5rem;
+    z-index: 10;
+}
+
+.edit-button,
+.delete-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.edit-button {
+    background-color: #FFD43B;
+    color: #495057;
+}
+
+.edit-button:hover {
+    background-color: #fcc419;
+}
+
+.delete-button {
+    background-color: #FA5252;
+    color: white;
+}
+
+.delete-button:hover {
+    background-color: #e03131;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .flashcard-container {
+        padding: 1rem;
+    }
+
+    .flashcards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+}
