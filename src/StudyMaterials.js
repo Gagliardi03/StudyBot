@@ -1,7 +1,16 @@
-// StudyMaterials.js - Componente para gerenciar materiais de estudo
+// StudyMaterials.js - Componente para gerenciar materiais de estudo (atualizado com integração à API)
 import React, { useState, useEffect } from 'react';
 import './StudyMaterials.css';
-import { File, FileText, FilePlus, Trash2, Search, BookOpen } from 'lucide-react';
+import { File, FileText, FilePlus, Trash2, Search, BookOpen, FileType, X, Loader } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  getMaterials,
+  getMaterial,
+  uploadMaterial,
+  deleteMaterial,
+  summarizeMaterial,
+  generateFlashcardsFromMaterial
+} from './services/api';
 
 function StudyMaterials() {
   const [materials, setMaterials] = useState([]);
@@ -9,120 +18,213 @@ function StudyMaterials() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [materialDetail, setMaterialDetail] = useState(null);
+  const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('gemini'); // gemini, mistral ou claude
+  const [showModelSelector, setShowModelSelector] = useState(false);
 
-  // Simula dados iniciais de materiais
+  const navigate = useNavigate();
+
+  // Carrega a lista de materiais
   useEffect(() => {
-    // Em produção, isso seria carregado do Firebase
-    const demoMaterials = [
-      {
-        id: '1',
-        name: 'Introdução às Redes Neurais.pdf',
-        type: 'pdf',
-        size: '2.4 MB',
-        uploadDate: new Date('2025-04-20'),
-        thumbnail: null
-      },
-      {
-        id: '2',
-        name: 'Resumo de Algoritmos.txt',
-        type: 'txt',
-        size: '156 KB',
-        uploadDate: new Date('2025-04-22'),
-        thumbnail: null
-      },
-      {
-        id: '3',
-        name: 'Slides Aula 5 - Processamento de Linguagem Natural.pptx',
-        type: 'pptx',
-        size: '4.7 MB',
-        uploadDate: new Date('2025-04-25'),
-        thumbnail: null
+    const loadMaterials = async () => {
+      try {
+        setIsLoading(true);
+        const data = await getMaterials();
+        setMaterials(data);
+      } catch (error) {
+        console.error("Erro ao carregar materiais:", error);
+        setError("Não foi possível carregar seus materiais. Por favor, tente novamente mais tarde.");
+      } finally {
+        setIsLoading(false);
       }
-    ];
+    };
 
-    setMaterials(demoMaterials);
+    loadMaterials();
   }, []);
 
   // Filtra materiais por busca
   const filteredMaterials = materials.filter(material =>
-    material.name.toLowerCase().includes(searchQuery.toLowerCase())
+    material.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Simula upload de arquivo
-  const handleFileUpload = (e) => {
+  // Carrega detalhes do material quando um é selecionado
+  useEffect(() => {
+    const loadMaterialDetail = async () => {
+      if (!selectedMaterial) {
+        setMaterialDetail(null);
+        setSummary(null);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const detail = await getMaterial(selectedMaterial.id, true);
+        setMaterialDetail(detail);
+      } catch (error) {
+        console.error("Erro ao carregar detalhes do material:", error);
+        setError("Erro ao carregar detalhes do material selecionado.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMaterialDetail();
+  }, [selectedMaterial]);
+
+  // Upload de arquivo
+  const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
     setIsUploading(true);
+    setUploadProgress(0);
 
-    // Simula progresso de upload
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
+    // Processa cada arquivo
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        // Simula progresso durante o upload
+        const interval = setInterval(() => {
+          setUploadProgress(prev => {
+            const newProgress = prev + 5;
+            if (newProgress >= 90) {
+              clearInterval(interval);
+            }
+            return newProgress < 90 ? newProgress : 90;
+          });
+        }, 300);
 
-      if (progress >= 100) {
+        // Faz o upload real
+        const uploadedMaterial = await uploadMaterial(file);
         clearInterval(interval);
+        setUploadProgress(100);
 
-        // Adiciona novos arquivos à lista
-        const newMaterials = files.map(file => ({
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-          name: file.name,
-          type: file.name.split('.').pop().toLowerCase(),
-          size: (file.size / 1024).toFixed(1) + ' KB',
-          uploadDate: new Date(),
-          thumbnail: null
-        }));
+        // Atualiza a lista de materiais
+        setMaterials(prev => [...prev, uploadedMaterial]);
 
-        setMaterials([...materials, ...newMaterials]);
-        setIsUploading(false);
+        // Seleciona o material recém-upado
+        setSelectedMaterial(uploadedMaterial);
+
+        // Reset após um tempo
+        setTimeout(() => {
+          setUploadProgress(0);
+          setIsUploading(false);
+        }, 1000);
+      } catch (error) {
+        console.error("Erro no upload:", error);
+        setError(`Erro ao fazer upload de ${file.name}. Tente novamente.`);
         setUploadProgress(0);
+        setIsUploading(false);
       }
-    }, 300);
+    }
   };
 
   // Remove material
-  const handleDelete = (id) => {
-    setMaterials(materials.filter(material => material.id !== id));
-    if (selectedMaterial && selectedMaterial.id === id) {
-      setSelectedMaterial(null);
+  const handleDelete = async (id) => {
+    if (!window.confirm("Tem certeza que deseja excluir este material?")) return;
+
+    try {
+      await deleteMaterial(id);
+      setMaterials(materials.filter(material => material.id !== id));
+      if (selectedMaterial && selectedMaterial.id === id) {
+        setSelectedMaterial(null);
+      }
+    } catch (error) {
+      console.error("Erro ao excluir material:", error);
+      setError("Erro ao excluir o material. Tente novamente.");
     }
   };
 
   // Seleciona material para visualização
   const handleSelect = (material) => {
     setSelectedMaterial(material);
+    setSummary(null); // Limpa o resumo ao trocar de material
+  };
+
+  // Gera resumo do material
+  const handleSummarize = async () => {
+    if (!selectedMaterial) return;
+
+    try {
+      setIsSummarizing(true);
+      const result = await summarizeMaterial(selectedMaterial.id, 5, selectedModel);
+      setSummary(result.summary);
+    } catch (error) {
+      console.error("Erro ao resumir material:", error);
+      setError("Não foi possível gerar o resumo. Tente novamente mais tarde.");
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  // Gera flashcards a partir do material
+  const handleGenerateFlashcards = async () => {
+    if (!selectedMaterial) return;
+
+    try {
+      await generateFlashcardsFromMaterial(selectedMaterial.id, 5, selectedModel);
+      // Redireciona para a página de flashcards
+      navigate('/flashcards');
+    } catch (error) {
+      console.error("Erro ao gerar flashcards:", error);
+      setError("Não foi possível gerar flashcards. Tente novamente mais tarde.");
+    }
   };
 
   // Ícone baseado no tipo de arquivo
   const getFileIcon = (type) => {
-    switch (type) {
-      case 'pdf':
-        return <FileText color="#FF5252" />;
-      case 'txt':
-        return <File color="#4C6EF5" />;
-      case 'doc':
-      case 'docx':
-        return <FileText color="#2196F3" />;
-      case 'ppt':
-      case 'pptx':
-        return <FileText color="#FF9800" />;
-      case 'xls':
-      case 'xlsx':
-        return <FileText color="#4CAF50" />;
-      default:
-        return <File color="#757575" />;
+    const fileType = type ? type.toLowerCase() : '';
+
+    if (fileType.includes('pdf')) {
+      return <FileText color="#FF5252" />;
+    } else if (fileType.includes('text') || fileType.endsWith('txt')) {
+      return <File color="#4C6EF5" />;
+    } else if (fileType.includes('word') || fileType.endsWith('doc') || fileType.endsWith('docx')) {
+      return <FileText color="#2196F3" />;
+    } else if (fileType.includes('presentation') || fileType.endsWith('ppt') || fileType.endsWith('pptx')) {
+      return <FileText color="#FF9800" />;
+    } else if (fileType.includes('sheet') || fileType.endsWith('xls') || fileType.endsWith('xlsx')) {
+      return <FileText color="#4CAF50" />;
+    } else {
+      return <File color="#757575" />;
     }
   };
 
   // Formata data de upload
-  const formatDate = (date) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Data desconhecida';
+
+    const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
   };
+
+  // Formata tamanho do arquivo
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Exibe uma mensagem de erro temporária
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   return (
     <div className="materials-container">
@@ -142,6 +244,48 @@ function StudyMaterials() {
               className="search-input"
             />
           </div>
+
+          {/* Seletor de Modelo LLM */}
+          <div className="model-selector">
+            <button
+              className="model-button"
+              onClick={() => setShowModelSelector(!showModelSelector)}
+            >
+              <span>LLM: {selectedModel}</span>
+            </button>
+            {showModelSelector && (
+              <div className="model-dropdown">
+                <button
+                  className={`model-option ${selectedModel === 'gemini' ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedModel('gemini');
+                    setShowModelSelector(false);
+                  }}
+                >
+                  Gemini
+                </button>
+                <button
+                  className={`model-option ${selectedModel === 'mistral' ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedModel('mistral');
+                    setShowModelSelector(false);
+                  }}
+                >
+                  Mistral
+                </button>
+                <button
+                  className={`model-option ${selectedModel === 'claude' ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedModel('claude');
+                    setShowModelSelector(false);
+                  }}
+                >
+                  Claude
+                </button>
+              </div>
+            )}
+          </div>
+
           <label className="upload-button">
             <FilePlus />
             <span>Adicionar</span>
@@ -150,10 +294,21 @@ function StudyMaterials() {
               multiple
               onChange={handleFileUpload}
               style={{ display: 'none' }}
+              accept=".pdf,.docx,.doc,.txt,.pptx,.ppt,.md"
             />
           </label>
         </div>
       </div>
+
+      {/* Mensagem de erro */}
+      {error && (
+        <div className="error-notification">
+          <p>{error}</p>
+          <button onClick={() => setError(null)}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {isUploading && (
         <div className="upload-progress">
@@ -169,7 +324,12 @@ function StudyMaterials() {
 
       <div className="materials-content">
         <div className="materials-list">
-          {filteredMaterials.length === 0 ? (
+          {isLoading && materials.length === 0 ? (
+            <div className="loading-container">
+              <Loader className="spinner" />
+              <p>Carregando materiais...</p>
+            </div>
+          ) : filteredMaterials.length === 0 ? (
             <div className="empty-list">
               <p>Nenhum material encontrado. Faça upload de PDFs, documentos ou anotações.</p>
             </div>
@@ -181,13 +341,13 @@ function StudyMaterials() {
                 onClick={() => handleSelect(material)}
               >
                 <div className="material-icon">
-                  {getFileIcon(material.type)}
+                  {getFileIcon(material.content_type)}
                 </div>
                 <div className="material-info">
-                  <h3 className="material-name">{material.name}</h3>
+                  <h3 className="material-name">{material.title}</h3>
                   <div className="material-meta">
-                    <span className="material-size">{material.size}</span>
-                    <span className="material-date">{formatDate(material.uploadDate)}</span>
+                    <span className="material-size">{formatFileSize(material.size)}</span>
+                    <span className="material-date">{formatDate(material.uploaded_at)}</span>
                   </div>
                 </div>
                 <button
@@ -205,25 +365,62 @@ function StudyMaterials() {
         </div>
 
         <div className="material-preview">
-          {selectedMaterial ? (
+          {isLoading && selectedMaterial ? (
+            <div className="loading-container">
+              <Loader className="spinner" />
+              <p>Carregando detalhes...</p>
+            </div>
+          ) : selectedMaterial ? (
             <div className="preview-content">
-              <h3>{selectedMaterial.name}</h3>
-              {selectedMaterial.type === 'pdf' ? (
-                <div className="pdf-preview">
-                  <p>Visualização de PDF não disponível neste protótipo.</p>
-                  <p>Em uma implementação completa, aqui seria exibido o conteúdo do PDF.</p>
+              <h3>{materialDetail?.title || selectedMaterial.title}</h3>
+
+              {isSummarizing ? (
+                <div className="summary-loading">
+                  <Loader className="spinner" />
+                  <p>Gerando resumo com {selectedModel}...</p>
+                </div>
+              ) : summary ? (
+                <div className="summary-container">
+                  <h4>Resumo gerado por {selectedModel}:</h4>
+                  <ul className="summary-points">
+                    {summary.map((point, index) => (
+                      <li key={index}>{point}</li>
+                    ))}
+                  </ul>
                 </div>
               ) : (
-                <div className="text-preview">
-                  <p>Visualização de conteúdo não disponível neste protótipo.</p>
-                  <p>Em uma implementação completa, aqui seria exibido o conteúdo do arquivo.</p>
-                </div>
+                <>
+                  {materialDetail?.text_content ? (
+                    <div className="text-preview">
+                      <p className="preview-text">{materialDetail.text_content.substring(0, 500)}...</p>
+                      <p className="content-notice">Conteúdo truncado para visualização. O texto completo está disponível para análise.</p>
+                    </div>
+                  ) : materialDetail?.text_preview ? (
+                    <div className="text-preview">
+                      <p className="preview-text">{materialDetail.text_preview}</p>
+                    </div>
+                  ) : (
+                    <div className="file-preview">
+                      <FileType size={48} />
+                      <p>Visualização não disponível para este tipo de arquivo.</p>
+                      <p>Você ainda pode gerar resumos e flashcards a partir do conteúdo.</p>
+                    </div>
+                  )}
+                </>
               )}
+
               <div className="preview-actions">
-                <button className="action-button summarize">
-                  <span>Resumir conteúdo</span>
+                <button
+                  className="action-button summarize"
+                  onClick={handleSummarize}
+                  disabled={isSummarizing}
+                >
+                  <span>{summary ? "Gerar novo resumo" : "Resumir conteúdo"}</span>
                 </button>
-                <button className="action-button flashcards">
+                <button
+                  className="action-button flashcards"
+                  onClick={handleGenerateFlashcards}
+                >
                   <span>Gerar flashcards</span>
                 </button>
               </div>

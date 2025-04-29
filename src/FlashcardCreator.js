@@ -1,7 +1,14 @@
-// FlashcardCreator.js - Componente para criação e exibição de flashcards
+// FlashcardCreator.js - Componente para criação e exibição de flashcards (atualizado com integração à API)
 import React, { useState, useEffect } from 'react';
 import './FlashcardCreator.css';
-import { BookOpen, Plus, Edit, Trash2, Check, X } from 'lucide-react';
+import { BookOpen, Plus, Edit, Trash2, Check, X, Loader, BookOpenCheck, Tag } from 'lucide-react';
+import {
+    getFlashcards,
+    createFlashcard,
+    updateFlashcard,
+    deleteFlashcard,
+    generateFlashcardsFromText
+} from './services/api';
 
 function FlashcardCreator() {
     const [flashcards, setFlashcards] = useState([]);
@@ -11,57 +18,124 @@ function FlashcardCreator() {
     const [notes, setNotes] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [flipped, setFlipped] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [error, setError] = useState(null);
+    const [selectedModel, setSelectedModel] = useState('gemini'); // gemini, mistral ou claude
+    const [showModelSelector, setShowModelSelector] = useState(false);
+    const [selectedTag, setSelectedTag] = useState(null);
+    const [tags, setTags] = useState([]);
 
-    // Função para simular a geração automática de flashcards
-    // Na implementação real, isso seria feito pelo LLM
-    const generateFlashcardsFromNotes = () => {
+    // Carrega flashcards ao iniciar
+    useEffect(() => {
+        const loadFlashcards = async () => {
+            try {
+                setIsLoading(true);
+                const data = await getFlashcards(selectedTag);
+                setFlashcards(data);
+
+                // Extrai tags únicas de todos os flashcards
+                const allTags = data.reduce((acc, card) => {
+                    if (card.tags && Array.isArray(card.tags)) {
+                        card.tags.forEach(tag => {
+                            if (!acc.includes(tag)) {
+                                acc.push(tag);
+                            }
+                        });
+                    }
+                    return acc;
+                }, []);
+
+                setTags(allTags);
+            } catch (error) {
+                console.error("Erro ao carregar flashcards:", error);
+                setError("Não foi possível carregar seus flashcards. Por favor, tente novamente mais tarde.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadFlashcards();
+    }, [selectedTag]);
+
+    // Função para gerar flashcards a partir de notas
+    const generateFlashcardsFromNotes = async () => {
         if (!notes.trim()) return;
 
-        // Simula processamento de notas pelo LLM
-        // Em produção, você enviaria as notas para seu backend com FastAPI
-        const generatedCards = [
-            {
-                id: Date.now(),
-                question: "O que é um modelo de linguagem?",
-                answer: "Um modelo computacional treinado para entender e gerar texto em linguagem natural."
-            },
-            {
-                id: Date.now() + 1,
-                question: "Qual a diferença entre Mistral e Claude?",
-                answer: "Mistral é um modelo open-source que pode rodar localmente, enquanto Claude é um modelo proprietário da Anthropic acessado via API."
-            }
-        ];
+        try {
+            setIsGenerating(true);
+            // Envia as notas para a API
+            const generatedCards = await generateFlashcardsFromText(notes, 5, selectedModel);
 
-        setFlashcards([...flashcards, ...generatedCards]);
-        setNotes('');
+            // Adiciona os novos flashcards à lista
+            setFlashcards(prev => [...prev, ...generatedCards]);
+            setNotes('');
+
+            // Mostra mensagem de sucesso temporária
+            setError({
+                type: 'success',
+                message: `${generatedCards.length} flashcards gerados com sucesso!`
+            });
+        } catch (error) {
+            console.error("Erro ao gerar flashcards:", error);
+            setError({
+                type: 'error',
+                message: "Erro ao gerar flashcards. Tente novamente."
+            });
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     // Adicionar ou atualizar flashcard
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (!question.trim() || !answer.trim()) return;
 
-        if (editingId !== null) {
-            // Atualiza flashcard existente
-            setFlashcards(flashcards.map(card =>
-                card.id === editingId ? { ...card, question, answer } : card
-            ));
-            setEditingId(null);
-        } else {
-            // Adiciona novo flashcard
-            const newCard = {
-                id: Date.now(),
-                question,
-                answer
-            };
-            setFlashcards([...flashcards, newCard]);
-        }
+        try {
+            if (editingId !== null) {
+                // Atualiza flashcard existente
+                const updatedCard = await updateFlashcard(editingId, {
+                    question,
+                    answer,
+                    tags: [] // Você pode implementar tags na interface se desejar
+                });
 
-        // Limpa o formulário
-        setQuestion('');
-        setAnswer('');
-        setShowForm(false);
+                setFlashcards(flashcards.map(card =>
+                    card.id === editingId ? updatedCard : card
+                ));
+
+            } else {
+                // Adiciona novo flashcard
+                const newCard = await createFlashcard({
+                    question,
+                    answer,
+                    tags: [] // Você pode implementar tags na interface se desejar
+                });
+
+                setFlashcards([...flashcards, newCard]);
+            }
+
+            // Limpa o formulário
+            setQuestion('');
+            setAnswer('');
+            setEditingId(null);
+            setShowForm(false);
+
+            // Mensagem de sucesso
+            setError({
+                type: 'success',
+                message: editingId !== null ? "Flashcard atualizado com sucesso!" : "Flashcard criado com sucesso!"
+            });
+
+        } catch (error) {
+            console.error("Erro ao salvar flashcard:", error);
+            setError({
+                type: 'error',
+                message: "Erro ao salvar flashcard. Tente novamente."
+            });
+        }
     };
 
     // Editar flashcard
@@ -73,14 +147,47 @@ function FlashcardCreator() {
     };
 
     // Excluir flashcard
-    const handleDelete = (id) => {
-        setFlashcards(flashcards.filter(card => card.id !== id));
+    const handleDelete = async (id) => {
+        if (!window.confirm("Tem certeza que deseja excluir este flashcard?")) return;
+
+        try {
+            await deleteFlashcard(id);
+            setFlashcards(flashcards.filter(card => card.id !== id));
+
+            // Mensagem de sucesso
+            setError({
+                type: 'success',
+                message: "Flashcard excluído com sucesso!"
+            });
+        } catch (error) {
+            console.error("Erro ao excluir flashcard:", error);
+            setError({
+                type: 'error',
+                message: "Erro ao excluir flashcard. Tente novamente."
+            });
+        }
     };
 
     // Virar flashcard
     const toggleFlip = (id) => {
         setFlipped(flipped === id ? null : id);
     };
+
+    // Filtra por tag
+    const handleTagSelect = (tag) => {
+        setSelectedTag(selectedTag === tag ? null : tag);
+    };
+
+    // Limpa erro após 5 segundos
+    useEffect(() => {
+        if (error) {
+            const timer = setTimeout(() => {
+                setError(null);
+            }, 5000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [error]);
 
     return (
         <div className="flashcard-container">
@@ -89,19 +196,93 @@ function FlashcardCreator() {
                     <BookOpen className="header-icon" />
                     <h2>Flashcards</h2>
                 </div>
-                <button
-                    className="create-button"
-                    onClick={() => {
-                        setShowForm(!showForm);
-                        setEditingId(null);
-                        setQuestion('');
-                        setAnswer('');
-                    }}
-                >
-                    <Plus size={20} />
-                    <span>Criar Flashcard</span>
-                </button>
+                <div className="header-actions">
+                    {/* Seletor de Modelo LLM */}
+                    <div className="model-selector">
+                        <button
+                            className="model-button"
+                            onClick={() => setShowModelSelector(!showModelSelector)}
+                        >
+                            <span>LLM: {selectedModel}</span>
+                        </button>
+                        {showModelSelector && (
+                            <div className="model-dropdown">
+                                <button
+                                    className={`model-option ${selectedModel === 'gemini' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setSelectedModel('gemini');
+                                        setShowModelSelector(false);
+                                    }}
+                                >
+                                    Gemini
+                                </button>
+                                <button
+                                    className={`model-option ${selectedModel === 'mistral' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setSelectedModel('mistral');
+                                        setShowModelSelector(false);
+                                    }}
+                                >
+                                    Mistral
+                                </button>
+                                <button
+                                    className={`model-option ${selectedModel === 'claude' ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setSelectedModel('claude');
+                                        setShowModelSelector(false);
+                                    }}
+                                >
+                                    Claude
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        className="create-button"
+                        onClick={() => {
+                            setShowForm(!showForm);
+                            setEditingId(null);
+                            setQuestion('');
+                            setAnswer('');
+                        }}
+                    >
+                        <Plus size={20} />
+                        <span>Criar Flashcard</span>
+                    </button>
+                </div>
             </div>
+
+            {/* Mensagem de erro/sucesso */}
+            {error && (
+                <div className={`notification ${error.type === 'success' ? 'success' : 'error'}`}>
+                    <p>{error.message}</p>
+                    <button onClick={() => setError(null)}>
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
+            {/* Tags */}
+            {tags.length > 0 && (
+                <div className="tags-container">
+                    <div className="tags-header">
+                        <Tag size={16} />
+                        <span>Filtrar por tags:</span>
+                    </div>
+                    <div className="tags-list">
+                        {tags.map(tag => (
+                            <button
+                                key={tag}
+                                className={`tag-button ${selectedTag === tag ? 'active' : ''}`}
+                                onClick={() => handleTagSelect(tag)}
+                            >
+                                {tag}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {showForm && (
                 <form className="flashcard-form" onSubmit={handleSubmit}>
@@ -150,14 +331,29 @@ function FlashcardCreator() {
                 <button
                     className="generate-button"
                     onClick={generateFlashcardsFromNotes}
-                    disabled={!notes.trim()}
+                    disabled={!notes.trim() || isGenerating}
                 >
-                    Gerar Flashcards
+                    {isGenerating ? (
+                        <>
+                            <Loader size={16} className="spinner" />
+                            <span>Gerando...</span>
+                        </>
+                    ) : (
+                        <>
+                            <BookOpenCheck size={16} />
+                            <span>Gerar Flashcards</span>
+                        </>
+                    )}
                 </button>
             </div>
 
             <div className="flashcards-grid">
-                {flashcards.length === 0 ? (
+                {isLoading ? (
+                    <div className="loading-container">
+                        <Loader className="spinner" />
+                        <p>Carregando flashcards...</p>
+                    </div>
+                ) : flashcards.length === 0 ? (
                     <div className="empty-state">
                         <p>Você ainda não tem flashcards. Crie manualmente ou gere a partir de suas anotações!</p>
                     </div>
@@ -196,6 +392,14 @@ function FlashcardCreator() {
                                     <Trash2 size={16} />
                                 </button>
                             </div>
+                            {/* Exibe tags se houver */}
+                            {card.tags && card.tags.length > 0 && (
+                                <div className="card-tags">
+                                    {card.tags.map((tag, index) => (
+                                        <span key={index} className="card-tag">{tag}</span>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))
                 )}

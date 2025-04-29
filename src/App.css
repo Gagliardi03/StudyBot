@@ -1,4 +1,4 @@
-/* App.css - Estilos para o Assistente de Estudos inspirado no Toasty */
+/* App.css - Estilos para o Assistente de Estudos inspirado no Toasty (atualizado) */
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap');
 
 :root {
@@ -13,6 +13,7 @@
     --user-message-text: #FFFFFF;
     --border-radius: 18px;
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --danger-color: #FA5252;
 }
 
 * {
@@ -84,6 +85,140 @@ body {
 
 .header-button:hover {
     background-color: #3b5bd4;
+}
+
+.clear-button {
+    background-color: var(--danger-color);
+}
+
+.clear-button:hover {
+    background-color: #e03131;
+}
+
+/* Model Selector */
+.model-selector {
+    position: relative;
+}
+
+.model-button {
+    background-color: #6741d9;
+}
+
+.model-button:hover {
+    background-color: #5f3dc4;
+}
+
+.model-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 10;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-top: 0.5rem;
+    width: 150px;
+}
+
+.model-option {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.model-option:hover {
+    background-color: var(--background-color);
+}
+
+.model-option.active {
+    background-color: #E7F5FF;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Context Bar */
+.context-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background-color: #E7F5FF;
+    border-bottom: 1px solid #D0EBFF;
+}
+
+.context-info {
+    font-size: 0.9rem;
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.context-close {
+    background: none;
+    border: none;
+    color: #868E96;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem;
+    border-radius: 50%;
+    transition: background-color 0.2s ease;
+}
+
+.context-close:hover {
+    background-color: #DEE2E6;
+    color: #495057;
+}
+
+/* Uploaded Files Section */
+.uploaded-files-section {
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px;
+}
+
+.uploaded-files-section h4 {
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.uploaded-files-section ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.uploaded-files-section li {
+    margin: 0;
+}
+
+.uploaded-files-section button {
+    background: #e9ecef;
+    border: none;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.uploaded-files-section button:hover {
+    background: #dee2e6;
+}
+
+.uploaded-files-section .active-file {
+    background: #4C6EF5;
+    color: white;
 }
 
 /* Chat Container */
@@ -258,6 +393,13 @@ body {
 @media (max-width: 768px) {
     .app-header {
         padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+    }
+
+    .header-actions {
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: flex-end;
     }
 
     .header-button span {

@@ -1,8 +1,10 @@
-/* FlashcardCreator.css - Estilos para o componente de flashcards */
+/* FlashcardCreator.css - Estilos para o componente de flashcards (atualizado) */
 
 .flashcard-container {
     padding: 1.5rem;
     background-color: #F8F9FA;
+    height: 100%;
+    overflow-y: auto;
 }
 
 .flashcard-header {
@@ -28,6 +30,12 @@
     color: #343A40;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
 .create-button {
     display: flex;
     align-items: center;
@@ -44,6 +52,89 @@
 
 .create-button:hover {
     background-color: #3b5bd4;
+}
+
+/* Notification */
+.notification {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+}
+
+.notification.success {
+    background-color: #D3F9D8;
+    color: #2B8A3E;
+    border: 1px solid #B2F2BB;
+}
+
+.notification.error {
+    background-color: #FFE3E3;
+    color: #E03131;
+    border: 1px solid #FFC9C9;
+}
+
+.notification button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+}
+
+.notification.success button {
+    color: #2B8A3E;
+}
+
+.notification.error button {
+    color: #E03131;
+}
+
+/* Tags */
+.tags-container {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.5rem;
+    background-color: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tags-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    color: #495057;
+    font-weight: 600;
+}
+
+.tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tag-button {
+    padding: 0.35rem 0.75rem;
+    background-color: #F1F3F5;
+    border: none;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tag-button:hover {
+    background-color: #E9ECEF;
+}
+
+.tag-button.active {
+    background-color: #4C6EF5;
+    color: white;
 }
 
 /* Formulário para criar/editar flashcards */
@@ -158,6 +249,10 @@
 }
 
 .generate-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     padding: 0.5rem 1rem;
     background-color: #FF922B;
     color: white;
@@ -177,6 +272,20 @@
     cursor: not-allowed;
 }
 
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 /* Grid de flashcards */
 .flashcards-grid {
     display: grid;
@@ -191,6 +300,21 @@
     background-color: white;
     border-radius: 12px;
     color: #6C757D;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.loading-container {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    background-color: white;
+    border-radius: 12px;
+    color: #6C757D;
+    gap: 1rem;
 }
 
 /* Estilo do flashcard */
@@ -281,6 +405,92 @@
     background-color: #e03131;
 }
 
+/* Tags dos cartões */
+.card-tags {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    z-index: 10;
+    max-width: 70%;
+}
+
+.card-tag {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    background-color: rgba(255, 255, 255, 0.25);
+    color: white;
+    border-radius: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.flipped .card-tag {
+    background-color: rgba(76, 110, 245, 0.15);
+    color: #4C6EF5;
+}
+
+/* Model selector */
+.model-selector {
+    position: relative;
+}
+
+.model-button {
+    background-color: #6741d9;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.model-button:hover {
+    background-color: #5f3dc4;
+}
+
+.model-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 10;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-top: 0.5rem;
+    width: 150px;
+}
+
+.model-option {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.model-option:hover {
+    background-color: #F8F9FA;
+}
+
+.model-option.active {
+    background-color: #E7F5FF;
+    color: #4C6EF5;
+    font-weight: 600;
+}
+
 /* Responsividade */
 @media (max-width: 768px) {
     .flashcard-container {
@@ -290,5 +500,15 @@
     .flashcards-grid {
         grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
         gap: 1rem;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .model-button span,
+    .create-button span {
+        display: none;
     }
 }
