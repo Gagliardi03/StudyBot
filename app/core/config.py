@@ -41,9 +41,12 @@ class Settings(BaseModel):
     FIREBASE_DATABASE_URL: Optional[str] = os.getenv("FIREBASE_DATABASE_URL")
 
     # LLM
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "mistral")  # mistral ou claude
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini")  # gemini, mistral ou claude
     MISTRAL_API_URL: str = os.getenv("MISTRAL_API_URL", "http://localhost:11434/api")
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY")
+    GOOGLE_API_KEY: str = os.getenv(
+        "GOOGLE_API_KEY", "AIzaSyDFHnM5qx0koAKWgvYkyV8bVYJSADUiZsQ"
+    )  # Chave Gemini
 
     # Upload de arquivos
     MAX_UPLOAD_SIZE: int = int(

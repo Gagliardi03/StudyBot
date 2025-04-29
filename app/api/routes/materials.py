@@ -1,13 +1,18 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Query
+from typing import List, Optional, Dict, Any
 from app.services.firebase_service import (
     store_material,
     get_user_materials,
     get_material,
     delete_material,
 )
+from app.services.pdf_service import extract_text_from_upload
+from app.services.llm_service import summarize_text
+from app.api.dependencies import get_current_user
 import uuid
 from datetime import datetime
+
+from app.core.config import Settings
 
 router = APIRouter()
 
@@ -17,28 +22,32 @@ async def upload_material(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
-    user_id: str = "test_user",
+    tags: Optional[str] = Form(None),  # formato: "tag1,tag2,tag3"
+    user_id: str = Depends(get_current_user),
 ):
     """Faz upload de um arquivo de material de estudo"""
     try:
-        # Em produção, você salvaria o arquivo no Firebase Storage
-        # e processaria o conteúdo para extração de texto
+        # Extrai texto do arquivo baseado no tipo
+        text_content, metadata = await extract_text_from_upload(file)
 
-        # Simulamos o processo para início rápido
-        file_content = await file.read()
-        file_size = len(file_content)
+        # Processa tags
+        tag_list = []
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
 
         # Dados do material
         material_data = {
             "title": title or file.filename,
             "filename": file.filename,
             "description": description or "",
-            "size": file_size,
+            "size": metadata.get("size", 0),
             "content_type": file.content_type,
-            "text_content": f"Conteúdo simulado para {file.filename} ({file_size} bytes)",
+            "text_content": text_content,
+            "tags": tag_list,
+            "metadata": metadata,
         }
 
-        # Armazena no "banco de dados"
+        # Armazena no banco de dados
         stored_material = await store_material(material_data, user_id)
 
         return stored_material
@@ -47,11 +56,19 @@ async def upload_material(
 
 
 @router.get("/")
-async def list_materials(user_id: str = "test_user"):
-    """Lista todos os materiais do usuário"""
+async def list_materials(
+    tag: Optional[str] = Query(None, description="Filtrar por tag"),
+    user_id: str = Depends(get_current_user),
+):
+    """Lista todos os materiais do usuário, opcionalmente filtrados por tag"""
     try:
         materials = await get_user_materials(user_id)
-        return {"materials": materials}
+
+        # Filtra por tag se especificado
+        if tag:
+            materials = [m for m in materials if "tags" in m and tag in m["tags"]]
+
+        return {"materials": materials, "total": len(materials)}
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Erro ao listar materiais: {str(e)}"
@@ -59,12 +76,26 @@ async def list_materials(user_id: str = "test_user"):
 
 
 @router.get("/{material_id}")
-async def get_material_details(material_id: str, user_id: str = "test_user"):
+async def get_material_details(
+    material_id: str,
+    include_content: bool = Query(
+        False, description="Incluir conteúdo de texto completo"
+    ),
+    user_id: str = Depends(get_current_user),
+):
     """Obtém detalhes de um material específico"""
     try:
         material = await get_material(material_id, user_id)
         if not material:
             raise HTTPException(status_code=404, detail="Material não encontrado")
+
+        # Remove o conteúdo de texto completo se não solicitado
+        if not include_content and "text_content" in material:
+            # Mantém apenas um trecho para visualização
+            preview_length = min(500, len(material["text_content"]))
+            material["text_preview"] = material["text_content"][:preview_length] + "..."
+            del material["text_content"]
+
         return material
     except HTTPException:
         raise
@@ -74,7 +105,12 @@ async def get_material_details(material_id: str, user_id: str = "test_user"):
 
 @router.post("/{material_id}/summarize")
 async def summarize_material(
-    material_id: str, num_points: Optional[int] = 5, user_id: str = "test_user"
+    material_id: str,
+    num_points: Optional[int] = Query(5, description="Número de pontos no resumo"),
+    model: Optional[str] = Query(
+        None, description="Modelo LLM a utilizar (gemini, mistral, claude)"
+    ),
+    user_id: str = Depends(get_current_user),
 ):
     """Gera um resumo do material de estudo"""
     try:
@@ -82,17 +118,24 @@ async def summarize_material(
         if not material:
             raise HTTPException(status_code=404, detail="Material não encontrado")
 
-        # Em produção, você enviaria o conteúdo para o LLM para resumo
-        # Aqui simulamos o resultado
-        summary = [
-            f"Ponto importante 1 sobre {material['title']}",
-            f"Ponto importante 2 sobre {material['title']}",
-            f"Ponto importante 3 sobre {material['title']}",
-            f"Ponto importante 4 sobre {material['title']}",
-            f"Ponto importante 5 sobre {material['title']}",
-        ]
+        if "text_content" not in material or not material["text_content"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Material não possui conteúdo de texto para resumir",
+            )
 
-        return {"summary": summary[:num_points]}
+        # Gera o resumo usando o LLM
+        summary = await summarize_text(
+            material["text_content"], num_points=num_points, model=model
+        )
+
+        return {
+            "material_id": material_id,
+            "title": material.get("title"),
+            "summary": summary,
+            "generated_at": datetime.now().isoformat(),
+            "model_used": model or Settings.LLM_MODEL,
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -101,8 +144,53 @@ async def summarize_material(
         )
 
 
+@router.put("/{material_id}")
+async def update_material_metadata(
+    material_id: str,
+    title: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),  # formato: "tag1,tag2,tag3"
+    user_id: str = Depends(get_current_user),
+):
+    """Atualiza metadados de um material"""
+    try:
+        material = await get_material(material_id, user_id)
+        if not material:
+            raise HTTPException(status_code=404, detail="Material não encontrado")
+
+        # Dados para atualização
+        update_data = {}
+
+        if title is not None:
+            update_data["title"] = title
+
+        if description is not None:
+            update_data["description"] = description
+
+        if tags is not None:
+            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+            update_data["tags"] = tag_list
+
+        # Em produção, implementar a atualização no Firebase
+        # Por enquanto, simulamos a atualização
+        for key, value in update_data.items():
+            material[key] = value
+
+        material["updated_at"] = datetime.now().isoformat()
+
+        return material
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao atualizar material: {str(e)}"
+        )
+
+
 @router.delete("/{material_id}")
-async def delete_material_endpoint(material_id: str, user_id: str = "test_user"):
+async def delete_material_endpoint(
+    material_id: str, user_id: str = Depends(get_current_user)
+):
     """Remove um material"""
     try:
         deleted = await delete_material(material_id, user_id)

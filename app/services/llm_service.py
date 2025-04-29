@@ -3,6 +3,7 @@ import json
 from typing import List, Dict, Any, Optional, Union
 from app.core.config import settings
 import asyncio
+from app.services.gemini_service import gemini_service
 
 
 async def query_mistral(
@@ -87,6 +88,27 @@ async def query_claude(
             return f"[Resposta simulada devido a erro na API: {str(e)}]"
 
 
+async def query_gemini(
+    prompt: str, max_tokens: int = 2048, temperature: float = 0.7
+) -> str:
+    """
+    Envia uma query para o Gemini via serviço LangChain
+
+    Args:
+        prompt: Texto para gerar a resposta
+        max_tokens: Número máximo de tokens na resposta
+        temperature: Temperatura para geração (0.0 a 1.0)
+
+    Returns:
+        Texto da resposta gerada
+    """
+    try:
+        return await gemini_service.generate_response(prompt, temperature)
+    except Exception as e:
+        print(f"Erro ao chamar Gemini: {str(e)}")
+        return f"[Resposta simulada devido a erro na API: {str(e)}]"
+
+
 async def query_llm(
     prompt: str,
     max_tokens: int = 2048,
@@ -100,7 +122,7 @@ async def query_llm(
         prompt: Texto para gerar a resposta
         max_tokens: Número máximo de tokens na resposta
         temperature: Temperatura para geração (0.0 a 1.0)
-        model: Modelo a ser usado (mistral ou claude)
+        model: Modelo a ser usado (gemini, mistral ou claude)
 
     Returns:
         Texto da resposta gerada
@@ -111,12 +133,14 @@ async def query_llm(
         return await query_mistral(prompt, max_tokens, temperature)
     elif model_to_use == "claude":
         return await query_claude(prompt, max_tokens, temperature)
+    elif model_to_use == "gemini":
+        return await query_gemini(prompt, max_tokens, temperature)
     else:
         raise ValueError(f"Modelo LLM não suportado: {model_to_use}")
 
 
 async def generate_flashcards_from_text(
-    text: str, count: int = 5, temperature: float = 0.7
+    text: str, count: int = 5, temperature: float = 0.7, model: Optional[str] = None
 ) -> List[Dict[str, str]]:
     """
     Gera flashcards a partir de texto usando o LLM configurado
@@ -125,10 +149,18 @@ async def generate_flashcards_from_text(
         text: Texto das notas para gerar flashcards
         count: Número de flashcards a gerar
         temperature: Temperatura para geração (0.0 a 1.0)
+        model: Modelo LLM a ser usado (opcional)
 
     Returns:
         Lista de dicionários com perguntas e respostas
     """
+    model_to_use = model or settings.LLM_MODEL.lower()
+
+    # Usar a implementação específica do Gemini quando escolhido
+    if model_to_use == "gemini":
+        return await gemini_service.generate_flashcards(text, count)
+
+    # Caso contrário, usar a implementação genérica
     prompt = f"""
     Gere {count} flashcards educativos a partir do texto abaixo.
     Cada flashcard deve ter uma pergunta clara e uma resposta concisa.
@@ -145,7 +177,7 @@ async def generate_flashcards_from_text(
     ]
     """
 
-    response = await query_llm(prompt, temperature=temperature)
+    response = await query_llm(prompt, temperature=temperature, model=model_to_use)
 
     # Extrai o array JSON da resposta
     try:
@@ -176,7 +208,10 @@ async def generate_flashcards_from_text(
 
 
 async def summarize_text(
-    text: str, num_points: int = 5, temperature: float = 0.7
+    text: str,
+    num_points: int = 5,
+    temperature: float = 0.7,
+    model: Optional[str] = None,
 ) -> List[str]:
     """
     Gera um resumo em tópicos a partir do texto
@@ -185,10 +220,22 @@ async def summarize_text(
         text: Texto a ser resumido
         num_points: Número de tópicos no resumo
         temperature: Temperatura para geração (0.0 a 1.0)
+        model: Modelo LLM a ser usado (opcional)
 
     Returns:
         Lista de strings com os tópicos do resumo
     """
+    model_to_use = model or settings.LLM_MODEL.lower()
+
+    # Usar a implementação específica do Gemini quando escolhido
+    if model_to_use == "gemini":
+        # Para textos grandes, usar a implementação para documentos grandes
+        if len(text) > 15000:
+            return await gemini_service.summarize_large_document(text, num_points)
+        else:
+            return await gemini_service.summarize_document(text, num_points)
+
+    # Caso contrário, usar a implementação genérica
     prompt = f"""
     Resuma o seguinte texto em {num_points} pontos principais.
     Cada ponto deve ser conciso e capturar uma ideia importante do texto.
@@ -204,7 +251,7 @@ async def summarize_text(
     ...
     """
 
-    response = await query_llm(prompt, temperature=temperature)
+    response = await query_llm(prompt, temperature=temperature, model=model_to_use)
 
     # Processa a resposta e extrai os pontos
     try:
@@ -237,7 +284,10 @@ async def summarize_text(
 
 
 async def answer_question(
-    question: str, context: Optional[str] = None, temperature: float = 0.7
+    question: str,
+    context: Optional[str] = None,
+    temperature: float = 0.7,
+    model: Optional[str] = None,
 ) -> str:
     """
     Responde a uma pergunta, opcionalmente baseando-se em um contexto
@@ -246,10 +296,18 @@ async def answer_question(
         question: Pergunta a ser respondida
         context: Contexto opcional (texto dos materiais) para basear a resposta
         temperature: Temperatura para geração (0.0 a 1.0)
+        model: Modelo LLM a ser usado (opcional)
 
     Returns:
         Texto da resposta
     """
+    model_to_use = model or settings.LLM_MODEL.lower()
+
+    # Usar a implementação específica do Gemini quando escolhido
+    if model_to_use == "gemini":
+        return await gemini_service.answer_question(question, context)
+
+    # Caso contrário, usar a implementação genérica
     if context:
         prompt = f"""
         Use apenas as informações fornecidas no CONTEXTO abaixo para responder à PERGUNTA.
@@ -273,4 +331,4 @@ async def answer_question(
         RESPOSTA:
         """
 
-    return await query_llm(prompt, temperature=temperature)
+    return await query_llm(prompt, temperature=temperature, model=model_to_use)
